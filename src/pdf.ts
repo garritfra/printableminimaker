@@ -1,6 +1,9 @@
 import {
   PDFDocument,
+  PDFFont,
   PDFImage,
+  PDFPage,
+  StandardFonts,
   rgb,
   pushGraphicsState,
   popGraphicsState,
@@ -33,6 +36,7 @@ type Mini = {
   imageHeightMm: number;
   totalHeightMm: number;
   pdfImage: PDFImage;
+  label?: string;
 };
 
 type Row = { items: Mini[]; widthMm: number; heightMm: number };
@@ -120,9 +124,14 @@ function pack(
   return pages;
 }
 
+export type GenerateOptions = {
+  pageSize: PageSizeKey;
+  numberDuplicates: boolean;
+};
+
 export async function generatePDF(
   entries: Entry[],
-  pageSize: PageSizeKey,
+  opts: GenerateOptions,
 ): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   pdf.setTitle('Paper Minis');
@@ -132,6 +141,8 @@ export async function generatePDF(
     (e) => e.image && e.count > 0 && resolveWidthMm(e) > 0,
   );
   if (valid.length === 0) throw new Error('No valid entries to generate.');
+
+  const font = await pdf.embedFont(StandardFonts.HelveticaBold);
 
   // Embed each unique file once.
   const cache = new Map<File, PDFImage>();
@@ -150,12 +161,19 @@ export async function generatePDF(
     const imageHeightMm = aspect * widthMm;
     const totalHeightMm = imageHeightMm * 2 + TAB_HEIGHT_MM * 2;
     for (let i = 0; i < e.count; i++) {
-      minis.push({ size: e.size, widthMm, imageHeightMm, totalHeightMm, pdfImage: img });
+      minis.push({
+        size: e.size,
+        widthMm,
+        imageHeightMm,
+        totalHeightMm,
+        pdfImage: img,
+        label: opts.numberDuplicates ? String(i + 1) : undefined,
+      });
     }
   }
   minis.sort((a, b) => b.widthMm - a.widthMm);
 
-  const { w: pageWmm, h: pageHmm } = PAGE_SIZES_MM[pageSize];
+  const { w: pageWmm, h: pageHmm } = PAGE_SIZES_MM[opts.pageSize];
   const usableWmm = pageWmm - MARGIN_MM * 2;
   const usableHmm = pageHmm - MARGIN_MM * 2;
 
@@ -168,7 +186,7 @@ export async function generatePDF(
     for (const row of page.rows) {
       let xMm = MARGIN_MM;
       for (const mini of row.items) {
-        drawMini(pdfPage, mini, xMm, yTopMm);
+        drawMini(pdfPage, mini, xMm, yTopMm, font);
         xMm += mini.widthMm + GAP_MM;
       }
       yTopMm -= row.heightMm + GAP_MM;
@@ -179,10 +197,11 @@ export async function generatePDF(
 }
 
 function drawMini(
-  pdfPage: import('pdf-lib').PDFPage,
+  pdfPage: PDFPage,
   mini: Mini,
   xMm: number,
   yTopMm: number,
+  font: PDFFont,
 ) {
   const yBottomMm = yTopMm - mini.totalHeightMm;
   const x = mm(xMm);
@@ -218,6 +237,11 @@ function drawMini(
     height: imgH,
   });
 
+  // Front label — bottom-right of front image
+  if (mini.label) {
+    drawLabelBadge(pdfPage, mini.label, font, mini.widthMm, x, yBottom + tab);
+  }
+
   // Back image — rotated 180° (= mirror horizontal + flip vertical).
   // CTM [-1 0 0 -1 e f] maps (px,py) → (e-px, f-py).
   // For an image drawn at (0,0) sized w×imgH, the four corners map to a
@@ -227,6 +251,11 @@ function drawMini(
   pdfPage.pushOperators(pushGraphicsState());
   pdfPage.pushOperators(concatTransformationMatrix(-1, 0, 0, -1, x + w, backTop));
   pdfPage.drawImage(mini.pdfImage, { x: 0, y: 0, width: w, height: imgH });
+  // Back label — same local coords as front so it lands on the visual
+  // bottom-right of the back face after folding + walking around.
+  if (mini.label) {
+    drawLabelBadge(pdfPage, mini.label, font, mini.widthMm, 0, 0);
+  }
   pdfPage.pushOperators(popGraphicsState());
 
   // Fold line — dotted, at the unfolded mini's vertical centre.
@@ -238,6 +267,52 @@ function drawMini(
     color: LIGHT_GREY,
     dashArray: [mm(DASH_ON_MM), mm(DASH_OFF_MM)],
   });
+}
+
+// Draws a small white badge with a number at the bottom-right of an
+// image-sized box anchored at (boxX, boxY) (bottom-left), in pt.
+function drawLabelBadge(
+  pdfPage: PDFPage,
+  label: string,
+  font: PDFFont,
+  widthMm: number,
+  boxX: number,
+  boxY: number,
+) {
+  const badgeWmm = clamp(widthMm * 0.22, 4, 7);
+  const badgeHmm = badgeWmm * 0.85;
+  const padMm = Math.min(0.8, widthMm * 0.04);
+  const fontSize = mm(badgeHmm * 0.65);
+
+  const bw = mm(badgeWmm);
+  const bh = mm(badgeHmm);
+  const pad = mm(padMm);
+  const bx = boxX + mm(widthMm) - bw - pad;
+  const by = boxY + pad;
+
+  pdfPage.drawRectangle({
+    x: bx,
+    y: by,
+    width: bw,
+    height: bh,
+    color: rgb(1, 1, 1),
+    borderColor: rgb(0.4, 0.4, 0.4),
+    borderWidth: mm(0.2),
+  });
+
+  const textW = font.widthOfTextAtSize(label, fontSize);
+  const textH = font.heightAtSize(fontSize, { descender: false });
+  pdfPage.drawText(label, {
+    x: bx + (bw - textW) / 2,
+    y: by + (bh - textH) / 2,
+    size: fontSize,
+    font,
+    color: rgb(0, 0, 0),
+  });
+}
+
+function clamp(v: number, lo: number, hi: number): number {
+  return v < lo ? lo : v > hi ? hi : v;
 }
 
 export function buildFilename(): string {

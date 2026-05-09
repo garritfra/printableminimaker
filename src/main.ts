@@ -3,12 +3,16 @@ import { DEFAULT_CUSTOM_WIDTH_MM, SIZE_LABELS } from './sizes';
 import type { DnDSize, Entry } from './types';
 
 const rows: Entry[] = [];
-let pageSize: PageSizeKey = 'a4';
 
 const rowsEl = document.getElementById('rows') as HTMLElement;
 const addBtn = document.getElementById('add-row') as HTMLButtonElement;
 const generateBtn = document.getElementById('generate') as HTMLButtonElement;
 const pageSizeSel = document.getElementById('page-size') as HTMLSelectElement;
+const numberDuplicatesEl = document.getElementById('number-duplicates') as HTMLInputElement;
+
+// Seed from the DOM so browser-restored checkbox/select state survives reloads.
+let pageSize: PageSizeKey = pageSizeSel.value as PageSizeKey;
+let numberDuplicates = numberDuplicatesEl.checked;
 
 function isValid(): boolean {
   return (
@@ -157,12 +161,16 @@ pageSizeSel.addEventListener('change', () => {
   pageSize = pageSizeSel.value as PageSizeKey;
 });
 
+numberDuplicatesEl.addEventListener('change', () => {
+  numberDuplicates = numberDuplicatesEl.checked;
+});
+
 generateBtn.addEventListener('click', async () => {
   const original = generateBtn.textContent;
   generateBtn.disabled = true;
   generateBtn.textContent = 'Generating…';
   try {
-    const bytes = await generatePDF(rows, pageSize);
+    const bytes = await generatePDF(rows, { pageSize, numberDuplicates });
     const blob = new Blob([bytes as BlobPart], { type: 'application/pdf' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

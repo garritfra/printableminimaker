@@ -59,6 +59,13 @@ header .sub { margin: 0 0 1.5rem; color: var(--muted); }
   gap: 0.5rem;
 }
 
+.controls .checkbox-label {
+  cursor: pointer;
+  user-select: none;
+}
+
+.controls .checkbox-label input { margin: 0; }
+
 .controls select,
 .controls button,
 .row select,
