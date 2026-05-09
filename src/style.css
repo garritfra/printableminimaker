@@ -22,7 +22,21 @@ main {
   padding: 2rem 1.25rem 4rem;
 }
 
-header h1 { margin: 0 0 0.25rem; font-size: 1.5rem; }
+header .title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.25rem;
+}
+header h1 { margin: 0; font-size: 1.5rem; }
+header .repo-link {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+header .repo-link:hover { text-decoration: underline; }
 header .sub { margin: 0 0 1.5rem; color: var(--muted); }
 
 .controls {
@@ -38,11 +52,11 @@ header .sub { margin: 0 0 1.5rem; color: var(--muted); }
 }
 
 .controls label {
-  display: flex;
-  flex-direction: column;
-  font-size: 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.9rem;
   color: var(--muted);
-  gap: 0.25rem;
+  gap: 0.5rem;
 }
 
 .controls select,
