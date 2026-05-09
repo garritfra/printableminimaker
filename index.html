@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Paper Mini Generator</title>
+    <script type="module" crossorigin src="./assets/index-DA7iW41O.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-DFMwwt3B.css">
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Paper Mini Generator</h1>
+        <p class="sub">Upload artwork, pick a size, get a print-ready PDF of foldable D&amp;D paper miniatures.</p>
+      </header>
+
+      <section class="controls">
+        <label>
+          Page size
+          <select id="page-size">
+            <option value="a4" selected>A4 (210 × 297 mm)</option>
+            <option value="letter">Letter (216 × 279 mm)</option>
+          </select>
+        </label>
+        <button id="add-row" type="button">+ Add row</button>
+        <button id="generate" type="button" disabled>Generate PDF</button>
+      </section>
+
+      <section id="rows" class="rows" aria-label="Mini entries"></section>
+
+      <p class="hint">Tip: rectangular images work as-is. Background isn't removed in v1.</p>
+    </main>
+
+  </body>
+</html>
