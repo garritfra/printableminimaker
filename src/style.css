@@ -1,0 +1,146 @@
+:root {
+  --bg: #f6f5f1;
+  --fg: #1a1a1a;
+  --muted: #666;
+  --border: #d4d2cc;
+  --accent: #2a4d8f;
+  --danger: #b13434;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+main {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 4rem;
+}
+
+header h1 { margin: 0 0 0.25rem; font-size: 1.5rem; }
+header .sub { margin: 0 0 1.5rem; color: var(--muted); }
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.75rem;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.controls label {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.8rem;
+  color: var(--muted);
+  gap: 0.25rem;
+}
+
+.controls select,
+.controls button,
+.row select,
+.row input {
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.95rem;
+  background: white;
+  font-family: inherit;
+}
+
+.controls button {
+  cursor: pointer;
+  background: white;
+}
+
+.controls button#generate {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+  margin-left: auto;
+}
+
+.controls button#generate:disabled {
+  background: #aab; border-color: #aab; cursor: not-allowed;
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 56px 1fr 130px 90px 36px;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.5rem;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.row .thumb {
+  width: 56px;
+  height: 56px;
+  background: #eee;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+.row .thumb img { width: 100%; height: 100%; object-fit: cover; }
+.row .thumb.empty::after {
+  content: 'no image';
+  font-size: 0.65rem;
+  color: var(--muted);
+}
+
+.row .file-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+.row .file-name {
+  font-size: 0.85rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.row input[type="file"] { font-size: 0.8rem; }
+.row input[type="number"] { width: 100%; }
+
+.row .remove {
+  border: none;
+  background: transparent;
+  color: var(--danger);
+  font-size: 1.2rem;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.row .remove:hover { background: #fbe9e9; }
+
+.hint { color: var(--muted); font-size: 0.85rem; margin-top: 1.5rem; }
+
+.empty-state {
+  padding: 2rem;
+  text-align: center;
+  color: var(--muted);
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+}
