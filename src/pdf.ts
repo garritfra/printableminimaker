@@ -7,7 +7,7 @@ import {
   concatTransformationMatrix,
 } from 'pdf-lib';
 import type { DnDSize, Entry } from './types';
-import { SIZE_RANK, SIZE_WIDTH_MM } from './sizes';
+import { SIZE_WIDTH_MM } from './sizes';
 
 const MM_TO_PT = 72 / 25.4;
 const mm = (v: number) => v * MM_TO_PT;
@@ -37,6 +37,11 @@ type Mini = {
 
 type Row = { items: Mini[]; widthMm: number; heightMm: number };
 type Page = { rows: Row[]; heightMm: number };
+
+function resolveWidthMm(e: Entry): number {
+  if (e.size === 'custom') return e.customWidthMm ?? 0;
+  return SIZE_WIDTH_MM[e.size];
+}
 
 async function fileToImageBytes(
   file: File,
@@ -123,7 +128,9 @@ export async function generatePDF(
   pdf.setTitle('Paper Minis');
   pdf.setCreator('Paper Mini Generator');
 
-  const valid = entries.filter((e) => e.image && e.count > 0);
+  const valid = entries.filter(
+    (e) => e.image && e.count > 0 && resolveWidthMm(e) > 0,
+  );
   if (valid.length === 0) throw new Error('No valid entries to generate.');
 
   // Embed each unique file once.
@@ -134,11 +141,11 @@ export async function generatePDF(
     }
   }
 
-  // Expand to per-mini list, sorted by size descending.
+  // Expand to per-mini list, sorted by base width descending.
   const minis: Mini[] = [];
   for (const e of valid) {
     const img = cache.get(e.image!)!;
-    const widthMm = SIZE_WIDTH_MM[e.size];
+    const widthMm = resolveWidthMm(e);
     const aspect = img.height / img.width;
     const imageHeightMm = aspect * widthMm;
     const totalHeightMm = imageHeightMm * 2 + TAB_HEIGHT_MM * 2;
@@ -146,7 +153,7 @@ export async function generatePDF(
       minis.push({ size: e.size, widthMm, imageHeightMm, totalHeightMm, pdfImage: img });
     }
   }
-  minis.sort((a, b) => SIZE_RANK[b.size] - SIZE_RANK[a.size]);
+  minis.sort((a, b) => b.widthMm - a.widthMm);
 
   const { w: pageWmm, h: pageHmm } = PAGE_SIZES_MM[pageSize];
   const usableWmm = pageWmm - MARGIN_MM * 2;

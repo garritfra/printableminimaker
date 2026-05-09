@@ -1,5 +1,5 @@
 import { generatePDF, buildFilename, type PageSizeKey } from './pdf';
-import { SIZE_LABELS } from './sizes';
+import { DEFAULT_CUSTOM_WIDTH_MM, SIZE_LABELS } from './sizes';
 import type { DnDSize, Entry } from './types';
 
 const rows: Entry[] = [];
@@ -11,7 +11,15 @@ const generateBtn = document.getElementById('generate') as HTMLButtonElement;
 const pageSizeSel = document.getElementById('page-size') as HTMLSelectElement;
 
 function isValid(): boolean {
-  return rows.length > 0 && rows.every((r) => r.image && r.count > 0);
+  return (
+    rows.length > 0 &&
+    rows.every(
+      (r) =>
+        r.image &&
+        r.count > 0 &&
+        (r.size !== 'custom' || (r.customWidthMm != null && r.customWidthMm > 0)),
+    )
+  );
 }
 
 function updateGenerateBtn() {
@@ -53,7 +61,10 @@ function buildRow(entry: Entry): HTMLElement {
   }
   el.appendChild(fileWrap);
 
-  // Size dropdown
+  // Size dropdown + optional custom width input
+  const sizeWrap = document.createElement('div');
+  sizeWrap.className = 'size-wrap';
+
   const sizeSel = document.createElement('select');
   for (const [val, label] of Object.entries(SIZE_LABELS)) {
     const opt = document.createElement('option');
@@ -62,10 +73,39 @@ function buildRow(entry: Entry): HTMLElement {
     if (val === entry.size) opt.selected = true;
     sizeSel.appendChild(opt);
   }
+  sizeWrap.appendChild(sizeSel);
+
+  const customInput = document.createElement('input');
+  customInput.type = 'number';
+  customInput.min = '1';
+  customInput.step = '0.5';
+  customInput.className = 'custom-width';
+  customInput.placeholder = 'mm';
+  customInput.title = 'Base width in mm';
+  customInput.value = String(entry.customWidthMm ?? '');
+  customInput.style.display = entry.size === 'custom' ? '' : 'none';
+  customInput.addEventListener('input', () => {
+    const n = parseFloat(customInput.value);
+    entry.customWidthMm = Number.isFinite(n) && n > 0 ? n : undefined;
+    updateGenerateBtn();
+  });
+  sizeWrap.appendChild(customInput);
+
   sizeSel.addEventListener('change', () => {
     entry.size = sizeSel.value as DnDSize;
+    if (entry.size === 'custom') {
+      if (entry.customWidthMm == null || entry.customWidthMm <= 0) {
+        entry.customWidthMm = DEFAULT_CUSTOM_WIDTH_MM;
+        customInput.value = String(DEFAULT_CUSTOM_WIDTH_MM);
+      }
+      customInput.style.display = '';
+    } else {
+      customInput.style.display = 'none';
+    }
+    updateGenerateBtn();
   });
-  el.appendChild(sizeSel);
+
+  el.appendChild(sizeWrap);
 
   // Count input
   const countInput = document.createElement('input');

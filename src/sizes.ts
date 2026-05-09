@@ -1,6 +1,6 @@
-import type { DnDSize } from './types';
+import type { DnDPresetSize, DnDSize } from './types';
 
-export const SIZE_WIDTH_MM: Record<DnDSize, number> = {
+export const SIZE_WIDTH_MM: Record<DnDPresetSize, number> = {
   tiny: 12.5,
   small: 25,
   medium: 25,
@@ -16,13 +16,7 @@ export const SIZE_LABELS: Record<DnDSize, string> = {
   large: 'Large (50 mm)',
   huge: 'Huge (75 mm)',
   gargantuan: 'Gargantuan (100 mm)',
+  custom: 'Custom…',
 };
 
-export const SIZE_RANK: Record<DnDSize, number> = {
-  gargantuan: 6,
-  huge: 5,
-  large: 4,
-  medium: 3,
-  small: 2,
-  tiny: 1,
-};
+export const DEFAULT_CUSTOM_WIDTH_MM = 30;
