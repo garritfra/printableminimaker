@@ -237,9 +237,17 @@ function drawMini(
     height: imgH,
   });
 
-  // Front label — bottom-right of front image
+  // Front label — top-right of front image
   if (mini.label) {
-    drawLabelBadge(pdfPage, mini.label, font, mini.widthMm, x, yBottom + tab);
+    drawLabelBadge(
+      pdfPage,
+      mini.label,
+      font,
+      mini.widthMm,
+      mini.imageHeightMm,
+      x,
+      yBottom + tab,
+    );
   }
 
   // Back image — rotated 180° (= mirror horizontal + flip vertical).
@@ -252,9 +260,9 @@ function drawMini(
   pdfPage.pushOperators(concatTransformationMatrix(-1, 0, 0, -1, x + w, backTop));
   pdfPage.drawImage(mini.pdfImage, { x: 0, y: 0, width: w, height: imgH });
   // Back label — same local coords as front so it lands on the visual
-  // bottom-right of the back face after folding + walking around.
+  // top-right of the back face after folding + walking around.
   if (mini.label) {
-    drawLabelBadge(pdfPage, mini.label, font, mini.widthMm, 0, 0);
+    drawLabelBadge(pdfPage, mini.label, font, mini.widthMm, mini.imageHeightMm, 0, 0);
   }
   pdfPage.pushOperators(popGraphicsState());
 
@@ -269,13 +277,14 @@ function drawMini(
   });
 }
 
-// Draws a small white badge with a number at the bottom-right of an
+// Draws a small white badge with a number at the top-right of an
 // image-sized box anchored at (boxX, boxY) (bottom-left), in pt.
 function drawLabelBadge(
   pdfPage: PDFPage,
   label: string,
   font: PDFFont,
   widthMm: number,
+  imageHeightMm: number,
   boxX: number,
   boxY: number,
 ) {
@@ -288,7 +297,7 @@ function drawLabelBadge(
   const bh = mm(badgeHmm);
   const pad = mm(padMm);
   const bx = boxX + mm(widthMm) - bw - pad;
-  const by = boxY + pad;
+  const by = boxY + mm(imageHeightMm) - bh - pad;
 
   pdfPage.drawRectangle({
     x: bx,
