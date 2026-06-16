@@ -55,7 +55,7 @@ Per-mini unfolded layout, top to bottom:
 
 When folded along the centre line, the two tabs land on top of each other → double thickness for slot bases.
 
-Image height is `source_aspect_ratio × base_width`. No bounding-box clamp.
+Image height is `source_aspect_ratio × base_width`, **clamped** so it never exceeds `1.5 × base_width`. The base width is the grid footprint and is fixed by the size category. Wide/short images fill the full base width. Tall images that would overflow the height cap are scaled down to fit and become narrower than the base — they are centred horizontally over it (no cropping, aspect preserved). This keeps height monotonic with size: a larger base always permits a taller figure, so a Small mini can never tower over a Large one.
 
 Cut lines: solid 0.2mm light grey rectangle around the full unfolded mini.
 
@@ -94,7 +94,6 @@ Vector PDF via `pdf-lib` (or `jsPDF` — implementer's choice).
 - URL paste / fetching remote images (CORS).
 - Background removal / silhouette cut.
 - Separate front and back artwork upload.
-- Bounding-box height clamp.
 - Integral fold-out feet (separate stand assumed).
 - Cloud storage / saved entries / multi-user.
 

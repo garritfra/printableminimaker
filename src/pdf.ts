@@ -10,7 +10,7 @@ import {
   concatTransformationMatrix,
 } from 'pdf-lib';
 import type { DnDSize, Entry } from './types';
-import { SIZE_WIDTH_MM } from './sizes';
+import { SIZE_WIDTH_MM, fitImageBox } from './sizes';
 
 const MM_TO_PT = 72 / 25.4;
 const mm = (v: number) => v * MM_TO_PT;
@@ -32,7 +32,9 @@ export type PageSizeKey = keyof typeof PAGE_SIZES_MM;
 
 type Mini = {
   size: DnDSize;
-  widthMm: number;
+  widthMm: number; // base/footprint width — outline, tabs, packing
+  imageWidthMm: number; // drawn image width (<= widthMm)
+  imageOffsetXMm: number; // horizontal offset to center image over the base
   imageHeightMm: number;
   totalHeightMm: number;
   pdfImage: PDFImage;
@@ -157,13 +159,19 @@ export async function generatePDF(
   for (const e of valid) {
     const img = cache.get(e.image!)!;
     const widthMm = resolveWidthMm(e);
-    const aspect = img.height / img.width;
-    const imageHeightMm = aspect * widthMm;
+    const { imageWidthMm, imageHeightMm } = fitImageBox(
+      widthMm,
+      img.width,
+      img.height,
+    );
+    const imageOffsetXMm = (widthMm - imageWidthMm) / 2;
     const totalHeightMm = imageHeightMm * 2 + TAB_HEIGHT_MM * 2;
     for (let i = 0; i < e.count; i++) {
       minis.push({
         size: e.size,
         widthMm,
+        imageWidthMm,
+        imageOffsetXMm,
         imageHeightMm,
         totalHeightMm,
         pdfImage: img,
@@ -207,6 +215,8 @@ function drawMini(
   const x = mm(xMm);
   const yBottom = mm(yBottomMm);
   const w = mm(mini.widthMm);
+  const iw = mm(mini.imageWidthMm);
+  const offX = mm(mini.imageOffsetXMm);
   const totalH = mm(mini.totalHeightMm);
   const tab = mm(TAB_HEIGHT_MM);
   const imgH = mm(mini.imageHeightMm);
@@ -229,11 +239,11 @@ function drawMini(
     borderWidth: stroke,
   });
 
-  // Front image
+  // Front image — centered horizontally over the base footprint.
   pdfPage.drawImage(mini.pdfImage, {
-    x,
+    x: x + offX,
     y: yBottom + tab,
-    width: w,
+    width: iw,
     height: imgH,
   });
 
@@ -243,26 +253,29 @@ function drawMini(
       pdfPage,
       mini.label,
       font,
-      mini.widthMm,
+      mini.imageWidthMm,
       mini.imageHeightMm,
-      x,
+      x + offX,
       yBottom + tab,
     );
   }
 
-  // Back image — rotated 180° (= mirror horizontal + flip vertical).
+  // Back image — rotated 180° (= mirror horizontal + flip vertical), centered.
   // CTM [-1 0 0 -1 e f] maps (px,py) → (e-px, f-py).
-  // For an image drawn at (0,0) sized w×imgH, the four corners map to a
-  // rectangle from (e-w, f-imgH) to (e, f). We want that to be the slot
-  // [(x, yBottom+tab+imgH), (x+w, yBottom+tab+2*imgH)], so e=x+w, f=yBottom+tab+2*imgH.
+  // For an image drawn at (0,0) sized iw×imgH, the four corners map to a
+  // rectangle from (e-iw, f-imgH) to (e, f). We want that to be the slot
+  // [(x+offX, yBottom+tab+imgH), (x+offX+iw, yBottom+tab+2*imgH)], so
+  // e=x+offX+iw, f=yBottom+tab+2*imgH.
   const backTop = yBottom + tab + imgH * 2;
   pdfPage.pushOperators(pushGraphicsState());
-  pdfPage.pushOperators(concatTransformationMatrix(-1, 0, 0, -1, x + w, backTop));
-  pdfPage.drawImage(mini.pdfImage, { x: 0, y: 0, width: w, height: imgH });
+  pdfPage.pushOperators(
+    concatTransformationMatrix(-1, 0, 0, -1, x + offX + iw, backTop),
+  );
+  pdfPage.drawImage(mini.pdfImage, { x: 0, y: 0, width: iw, height: imgH });
   // Back label — same local coords as front so it lands on the visual
   // top-right of the back face after folding + walking around.
   if (mini.label) {
-    drawLabelBadge(pdfPage, mini.label, font, mini.widthMm, mini.imageHeightMm, 0, 0);
+    drawLabelBadge(pdfPage, mini.label, font, mini.imageWidthMm, mini.imageHeightMm, 0, 0);
   }
   pdfPage.pushOperators(popGraphicsState());
 

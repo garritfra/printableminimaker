@@ -20,3 +20,31 @@ export const SIZE_LABELS: Record<DnDSize, string> = {
 };
 
 export const DEFAULT_CUSTOM_WIDTH_MM = 30;
+
+// A mini's image height is capped at this multiple of its base width. The base
+// width is the grid footprint and is fixed by the size category; without a cap,
+// a tall image scaled to that width grows unbounded in height, so a Small
+// creature with a portrait can tower over a Large one with a landscape image.
+// Tying the cap to base width keeps the height monotonic with size: a larger
+// base always permits a taller figure.
+export const MAX_HEIGHT_RATIO = 1.5;
+
+// Fits an image inside the per-size box (baseWidth × baseWidth*MAX_HEIGHT_RATIO),
+// preserving aspect ratio. Wide/short images fill the full base width. Tall
+// images are clamped to the max height and become narrower than the base (the
+// caller centers them horizontally over the footprint). No cropping.
+export function fitImageBox(
+  baseWidthMm: number,
+  imgWidthPx: number,
+  imgHeightPx: number,
+): { imageWidthMm: number; imageHeightMm: number } {
+  const maxHeightMm = baseWidthMm * MAX_HEIGHT_RATIO;
+  const aspect = imgHeightPx / imgWidthPx;
+  let imageWidthMm = baseWidthMm;
+  let imageHeightMm = aspect * baseWidthMm;
+  if (imageHeightMm > maxHeightMm) {
+    imageHeightMm = maxHeightMm;
+    imageWidthMm = maxHeightMm / aspect;
+  }
+  return { imageWidthMm, imageHeightMm };
+}
