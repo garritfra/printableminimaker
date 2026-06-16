@@ -1,4 +1,4 @@
-import type { DnDPresetSize, DnDSize } from './types';
+import type { DnDPresetSize, DnDSize, Entry } from './types';
 
 export const SIZE_WIDTH_MM: Record<DnDPresetSize, number> = {
   tiny: 12.5,
@@ -20,6 +20,14 @@ export const SIZE_LABELS: Record<DnDSize, string> = {
 };
 
 export const DEFAULT_CUSTOM_WIDTH_MM = 30;
+
+// Resolves the base/footprint width (mm) of an entry: the preset width for a
+// D&D size, or the user's custom width. Returns 0 when a custom entry has no
+// valid width yet, which callers treat as "not packable".
+export function resolveBaseWidthMm(e: Pick<Entry, 'size' | 'customWidthMm'>): number {
+  if (e.size === 'custom') return e.customWidthMm != null && e.customWidthMm > 0 ? e.customWidthMm : 0;
+  return SIZE_WIDTH_MM[e.size];
+}
 
 // A mini's image height is capped at this multiple of its base width. The base
 // width is the grid footprint and is fixed by the size category; without a cap,

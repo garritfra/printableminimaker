@@ -9,45 +9,27 @@ import {
   popGraphicsState,
   concatTransformationMatrix,
 } from 'pdf-lib';
-import type { DnDSize, Entry } from './types';
-import { SIZE_WIDTH_MM, fitImageBox } from './sizes';
+import type { Entry } from './types';
+import { resolveBaseWidthMm } from './sizes';
+import {
+  GAP_MM,
+  MARGIN_MM,
+  PAGE_SIZES_MM,
+  TAB_HEIGHT_MM,
+  packMinis,
+  type PackedMini,
+  type PageSizeKey,
+} from './packing';
+
+export type { PageSizeKey };
 
 const MM_TO_PT = 72 / 25.4;
 const mm = (v: number) => v * MM_TO_PT;
 
-const TAB_HEIGHT_MM = 8;
-const MARGIN_MM = 10;
-const GAP_MM = 2;
 const STROKE_MM = 0.2;
 const LIGHT_GREY = rgb(0.7, 0.7, 0.7);
 const DASH_ON_MM = 1;
 const DASH_OFF_MM = 1;
-
-const PAGE_SIZES_MM = {
-  a4: { w: 210, h: 297 },
-  letter: { w: 216, h: 279 },
-} as const;
-
-export type PageSizeKey = keyof typeof PAGE_SIZES_MM;
-
-type Mini = {
-  size: DnDSize;
-  widthMm: number; // base/footprint width — outline, tabs, packing
-  imageWidthMm: number; // drawn image width (<= widthMm)
-  imageOffsetXMm: number; // horizontal offset to center image over the base
-  imageHeightMm: number;
-  totalHeightMm: number;
-  pdfImage: PDFImage;
-  label?: string;
-};
-
-type Row = { items: Mini[]; widthMm: number; heightMm: number };
-type Page = { rows: Row[]; heightMm: number };
-
-function resolveWidthMm(e: Entry): number {
-  if (e.size === 'custom') return e.customWidthMm ?? 0;
-  return SIZE_WIDTH_MM[e.size];
-}
 
 async function fileToImageBytes(
   file: File,
@@ -81,51 +63,6 @@ async function embedFile(pdf: PDFDocument, file: File): Promise<PDFImage> {
   return format === 'jpg' ? pdf.embedJpg(bytes) : pdf.embedPng(bytes);
 }
 
-function pack(
-  minis: Mini[],
-  usableWmm: number,
-  usableHmm: number,
-): Page[] {
-  const pages: Page[] = [];
-  let page: Page = { rows: [], heightMm: 0 };
-  let row: Row = { items: [], widthMm: 0, heightMm: 0 };
-
-  const flushRow = () => {
-    if (row.items.length === 0) return;
-    const addedHeight = row.heightMm + (page.rows.length > 0 ? GAP_MM : 0);
-    if (page.heightMm + addedHeight > usableHmm) {
-      if (page.rows.length > 0) pages.push(page);
-      page = { rows: [row], heightMm: row.heightMm };
-    } else {
-      page.rows.push(row);
-      page.heightMm += addedHeight;
-    }
-    row = { items: [], widthMm: 0, heightMm: 0 };
-  };
-
-  for (const mini of minis) {
-    if (mini.widthMm > usableWmm || mini.totalHeightMm > usableHmm) {
-      // Doesn't fit on a single page at all — skip with warning.
-      console.warn(
-        `Mini too large for page (${mini.widthMm}×${mini.totalHeightMm}mm); skipped.`,
-      );
-      continue;
-    }
-    const isFirst = row.items.length === 0;
-    const addedWidth = mini.widthMm + (isFirst ? 0 : GAP_MM);
-    if (row.widthMm + addedWidth > usableWmm) {
-      flushRow();
-    }
-    const firstNow = row.items.length === 0;
-    row.widthMm += mini.widthMm + (firstNow ? 0 : GAP_MM);
-    row.items.push(mini);
-    if (mini.totalHeightMm > row.heightMm) row.heightMm = mini.totalHeightMm;
-  }
-  flushRow();
-  if (page.rows.length > 0) pages.push(page);
-  return pages;
-}
-
 export type GenerateOptions = {
   pageSize: PageSizeKey;
   numberDuplicates: boolean;
@@ -140,62 +77,45 @@ export async function generatePDF(
   pdf.setCreator('Paper Mini Generator');
 
   const valid = entries.filter(
-    (e) => e.image && e.count > 0 && resolveWidthMm(e) > 0,
+    (e) => e.image && e.count > 0 && resolveBaseWidthMm(e) > 0,
   );
   if (valid.length === 0) throw new Error('No valid entries to generate.');
 
   const font = await pdf.embedFont(StandardFonts.HelveticaBold);
 
-  // Embed each unique file once.
+  // Embed each unique file once, keyed by its position in `valid` so packing's
+  // entryIndex maps straight back to the embedded image.
+  const images: PDFImage[] = [];
   const cache = new Map<File, PDFImage>();
   for (const e of valid) {
-    if (!cache.has(e.image!)) {
-      cache.set(e.image!, await embedFile(pdf, e.image!));
+    let img = cache.get(e.image!);
+    if (!img) {
+      img = await embedFile(pdf, e.image!);
+      cache.set(e.image!, img);
     }
+    images.push(img);
   }
 
-  // Expand to per-mini list, sorted by base width descending.
-  const minis: Mini[] = [];
-  for (const e of valid) {
-    const img = cache.get(e.image!)!;
-    const widthMm = resolveWidthMm(e);
-    const { imageWidthMm, imageHeightMm } = fitImageBox(
-      widthMm,
-      img.width,
-      img.height,
-    );
-    const imageOffsetXMm = (widthMm - imageWidthMm) / 2;
-    const totalHeightMm = imageHeightMm * 2 + TAB_HEIGHT_MM * 2;
-    for (let i = 0; i < e.count; i++) {
-      minis.push({
-        size: e.size,
-        widthMm,
-        imageWidthMm,
-        imageOffsetXMm,
-        imageHeightMm,
-        totalHeightMm,
-        pdfImage: img,
-        label: opts.numberDuplicates ? String(i + 1) : undefined,
-      });
-    }
-  }
-  minis.sort((a, b) => b.widthMm - a.widthMm);
+  // Drive layout off the embedded images' natural pixel dimensions so the PDF
+  // and the live page-count estimate use the exact same packing.
+  const sized: Entry[] = valid.map((e, i) => ({
+    ...e,
+    naturalWidth: images[i].width,
+    naturalHeight: images[i].height,
+  }));
 
-  const { w: pageWmm, h: pageHmm } = PAGE_SIZES_MM[opts.pageSize];
-  const usableWmm = pageWmm - MARGIN_MM * 2;
-  const usableHmm = pageHmm - MARGIN_MM * 2;
-
-  const pages = pack(minis, usableWmm, usableHmm);
+  const { pages } = packMinis(sized, opts);
   if (pages.length === 0) throw new Error('Nothing fits on a page.');
 
+  const { w: pageWmm, h: pageHmm } = PAGE_SIZES_MM[opts.pageSize];
   for (const page of pages) {
     const pdfPage = pdf.addPage([mm(pageWmm), mm(pageHmm)]);
     let yTopMm = pageHmm - MARGIN_MM;
     for (const row of page.rows) {
       let xMm = MARGIN_MM;
       for (const mini of row.items) {
-        drawMini(pdfPage, mini, xMm, yTopMm, font);
-        xMm += mini.widthMm + GAP_MM;
+        drawMini(pdfPage, mini, images[mini.entryIndex], xMm, yTopMm, font);
+        xMm += mini.baseWidthMm + GAP_MM;
       }
       yTopMm -= row.heightMm + GAP_MM;
     }
@@ -206,7 +126,8 @@ export async function generatePDF(
 
 function drawMini(
   pdfPage: PDFPage,
-  mini: Mini,
+  mini: PackedMini,
+  pdfImage: PDFImage,
   xMm: number,
   yTopMm: number,
   font: PDFFont,
@@ -214,7 +135,7 @@ function drawMini(
   const yBottomMm = yTopMm - mini.totalHeightMm;
   const x = mm(xMm);
   const yBottom = mm(yBottomMm);
-  const w = mm(mini.widthMm);
+  const w = mm(mini.baseWidthMm);
   const iw = mm(mini.imageWidthMm);
   const offX = mm(mini.imageOffsetXMm);
   const totalH = mm(mini.totalHeightMm);
@@ -240,7 +161,7 @@ function drawMini(
   });
 
   // Front image — centered horizontally over the base footprint.
-  pdfPage.drawImage(mini.pdfImage, {
+  pdfPage.drawImage(pdfImage, {
     x: x + offX,
     y: yBottom + tab,
     width: iw,
@@ -271,7 +192,7 @@ function drawMini(
   pdfPage.pushOperators(
     concatTransformationMatrix(-1, 0, 0, -1, x + offX + iw, backTop),
   );
-  pdfPage.drawImage(mini.pdfImage, { x: 0, y: 0, width: iw, height: imgH });
+  pdfPage.drawImage(pdfImage, { x: 0, y: 0, width: iw, height: imgH });
   // Back label — same local coords as front so it lands on the visual
   // top-right of the back face after folding + walking around.
   if (mini.label) {

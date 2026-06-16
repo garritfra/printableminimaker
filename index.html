@@ -16,7 +16,8 @@
         <p class="sub">Upload artwork, pick a size, get a print-ready PDF of foldable D&amp;D paper miniatures.</p>
       </header>
 
-      <section class="controls">
+      <!-- Settings only — the primary action lives in the sticky bar below. -->
+      <section class="settings" aria-label="Settings">
         <label>
           Page size
           <select id="page-size">
@@ -24,18 +25,72 @@
             <option value="letter">Letter (216 × 279 mm)</option>
           </select>
         </label>
-        <label class="checkbox-label" title="When a row has count > 1, label its minis 1, 2, 3, …">
-          <input type="checkbox" id="number-duplicates" />
+        <label class="checkbox-label" title="When a row has more than one copy, label its minis 1, 2, 3, …">
+          <input type="checkbox" id="number-duplicates" checked />
           Number duplicates
         </label>
-        <button id="add-row" type="button">+ Add row</button>
-        <button id="generate" type="button" disabled>Generate PDF</button>
       </section>
+
+      <!-- Drag-and-drop / multi-select. Large when empty, a slim strip once
+           there are entries. -->
+      <section
+        id="dropzone"
+        class="dropzone"
+        role="button"
+        tabindex="0"
+        aria-label="Add images: drag and drop or click to browse"
+      >
+        <div class="dropzone-inner">
+          <strong class="dropzone-title">Drop images here</strong>
+          <span class="dropzone-sub">or click to browse — PNG, JPG or WebP. Drop several at once to add a row each.</span>
+        </div>
+        <input
+          id="file-input"
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          multiple
+          hidden
+        />
+      </section>
+
+      <!-- Bulk controls + column header, shown only when there are rows. -->
+      <div id="rows-toolbar" class="rows-toolbar" hidden>
+        <button id="add-blank" type="button" class="ghost-btn">+ Add blank row</button>
+        <label class="bulk-size">
+          Set all to
+          <select id="bulk-size">
+            <option value="" selected disabled>size…</option>
+          </select>
+        </label>
+      </div>
+
+      <div id="rows-header" class="rows-header" hidden aria-hidden="true">
+        <span class="col-image">Image</span>
+        <span class="col-size">Size</span>
+        <span class="col-copies">Copies</span>
+        <span class="col-spacer"></span>
+      </div>
 
       <section id="rows" class="rows" aria-label="Mini entries"></section>
 
       <p class="hint">Tip: rectangular images work as-is. Background isn't removed in v1.</p>
     </main>
+
+    <!-- Sticky action bar: live scale readout + the terminal action. -->
+    <div class="action-bar">
+      <div class="action-bar-inner">
+        <div class="action-info">
+          <span id="count-readout" class="count-readout" aria-live="polite">No minis yet</span>
+          <span id="status" class="status" role="status" aria-live="polite" hidden></span>
+        </div>
+        <button id="generate" type="button" disabled>Generate PDF</button>
+      </div>
+    </div>
+
+    <!-- Full-window overlay shown while dragging files anywhere on the page. -->
+    <div id="drag-overlay" class="drag-overlay" hidden>
+      <div class="drag-overlay-msg">Drop to add minis</div>
+    </div>
 
     <script type="module" src="/src/main.ts"></script>
   </body>

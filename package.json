@@ -14,7 +14,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --experimental-strip-types src/sizes.test.ts && node --experimental-strip-types src/packing.test.ts"
   },
   "dependencies": {
     "pdf-lib": "^1.17.1"
