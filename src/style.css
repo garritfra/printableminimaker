@@ -307,6 +307,17 @@ button {
 
 .hint { color: var(--muted); font-size: 0.85rem; margin-top: 1.5rem; }
 
+.support {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+.support-text { margin: 0 0 0.75rem; color: var(--muted); font-size: 0.9rem; }
+/* The injected Buy Me a Coffee button carries its own inline styles; just
+   center it under the prompt. */
+.support img { vertical-align: middle; }
+
 /* --- Sticky action bar --- */
 
 .action-bar {
